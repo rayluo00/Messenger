@@ -1,3 +1,15 @@
+/* head.c
+ *
+ * Author: Raymond Weiming Luo
+ * CSCI 367 - Computer Networks I
+ * Assignment 4: Piggy4
+ * 
+ * Client program to connect onto the server end socket, input is from either the
+ * keyboad or a connecting socket depending on the file descriptor. Outputs data
+ * stream to the connected socket end. 
+ *
+ */
+
 #ifndef unix
 #define WIN32
 #include <windows.h>
@@ -23,9 +35,15 @@
 #define PROTOPORT 36710 /* default protocol port number */
 #define QLEN 12 /* size of request queue */
 #define maxwin 12
+
 static WINDOW *window[maxwin];
 extern FILE **logFiles;
 
+/************************************************** INITIAL VALUES **************************************************
+ * Struct to hold all initial values of during the creation of the head socket.
+ * Initial values used when the socket is reset.
+ *
+ */
 struct init_values {
   int rrport;
   int llport;
@@ -46,14 +64,19 @@ struct init_values {
   char* new_lraddr;
 };
 
+/*********************************************** PROCESS HEAD SOCKET ************************************************
+ * Create the head socket, then connect to the socket on the right with the 
+ * respected IP Address and port number. Socket can reuse the same address
+ * if the port is changed.
+ */
 int processHeadSocket (char* rrAddr, int rrPort) {
-  int  n; /* number of characters read */
-  int  sd; /* socket descriptor */
-  int  flag = 1;
-  int  port; /* protocol port number */
-  char* rightHost; /* pointer to host name */
-  struct hostent *ptrh; /* pointer to a host table entry */
-  struct protoent *ptrp; /* pointer to a protocol table entry */
+  int  n;                 /* number of characters read */
+  int  sd;                /* socket descriptor */
+  int  flag = 1;          /* socket flag */
+  int  port;              /* protocol port number */
+  char* rightHost;        /* pointer to host name */
+  struct hostent *ptrh;   /* pointer to a host table entry */
+  struct protoent *ptrp;  /* pointer to a protocol table entry */
   struct sockaddr_in sad; /* structure to hold an IP address */
 #ifdef WIN32
   WSADATA wsaData;
@@ -111,32 +134,36 @@ int processHeadSocket (char* rrAddr, int rrPort) {
   return sd;
 }
 
+/*************************************************** SOCKET HEAD ****************************************************
+ * Calls processHeadSocket() to create and connect a socket, the input for this
+ * socket depends on the corresponding file descriptor. FD = 1 is input from
+ * the keyboard and FD > 1 is input from the client/server socket.
+ *
+ */
 int headNode (char* rrAddr, int rrPort, int looprFlag, int looplFlag, int rlPort, struct init_values *init) {
-
-  int sd; /* socket descriptor */
   int ix = 0;
-  int nbytes, buflen, nch, i, buf_len;
-  int insertMode = 0;
-  int stlrnpFlag = 0;
-  int strlnpFlag = 0;
-  int strlnpxeolFlag = 0;
-  int stlrnpxeolFlag = 0;
+  int extlr = 0;
+  int extrl = 0;
   int loglrpre = 0;
   int logrlpre = 0;
   int loglrpost = 0;
   int logrlpost = 0;
-  int extlr = 0;
-  int extrl = 0;
-  int outputDirect = 1; /* output direction : 1 = L -> R | 0 = L <- R */
-  char* buf; /* buffer for data from the server */
+  int insertMode = 0;
+  int stlrnpFlag = 0;
+  int strlnpFlag = 0;
+  int outputDirect = 1;   /* output direction : 1 = L -> R | 0 = L <- R */
+  int strlnpxeolFlag = 0;
+  int stlrnpxeolFlag = 0;
+  int sd, nbytes, buflen, nch, i, buf_len;
+  char* buf;              /* buffer for data from the server */
   char** cmdBuf;
   char sendBuf[1000] = "";
   pid_t cpid;
   fd_set active_fdset, read_fdset;
   struct sockaddr_in lrad;
   struct sockaddr_in cad; /* structure to hold client's address */
-  struct hostent *ptrh; /* pointer to a host table entry */
-  struct protoent *ptrp; /* pointer to a protocol table entry */
+  struct hostent *ptrh;   /* pointer to a host table entry */
+  struct protoent *ptrp;  /* pointer to a protocol table entry */
   struct sockaddr_in sad; /* structure to hold an IP address */
 
   sd = processHeadSocket (rrAddr, rrPort);

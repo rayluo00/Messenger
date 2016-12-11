@@ -1,3 +1,15 @@
+/* tail.c
+ *
+ * Author: Raymond Weiming Luo
+ * CSCI 367 - Computer Networks I
+ * Assignment 4: Piggy4
+ *
+ * Server program to listen for a client to connect and recieve input from
+ * either the keyboard or a client socket depending on the file descriptor.
+ * Outputs data to the connected client.
+ *
+ */
+
 #ifndef unix
 #define WIN32
 #include <windows.h>
@@ -26,6 +38,11 @@
 static WINDOW *window[maxwin];
 extern FILE **logFiles;
 
+/******************************************************************************
+ * Struct to hold all initial values during the creation of the tail socket.
+ * Initial values used when the socket is reset. 
+ *
+ */
 struct init_values {
   int rrport;
   int llport;
@@ -44,21 +61,26 @@ struct init_values {
   char* new_lraddr;
 };
 
+/******************************************************************************
+ * Create the tail socket and listen to the socket on the left with the 
+ * respected IP address and port number. This socket acts as the server and
+ * can resue the same IP address when the port changes.
+ *
+ */
 int processTailSocket (char *lrAddr, int llPort, int lrPort) {
-  int  sd; /* socket descriptors */
-  int  port; /* protocol port number */
-  int  flag = 1; /* setsockopt flag */
-  struct hostent *ptrh; /* pointer to a host table entry */
-  struct protoent *ptrp; /* pointer to a protocol table entry */
-  struct sockaddr_in sad; /* structure to hold server's address */
+  int  sd;                            /* socket descriptors */
+  int  port;                          /* protocol port number */
+  int  flag = 1;                      /* setsockopt flag */
+  struct hostent *ptrh;               /* pointer to a host table entry */
+  struct protoent *ptrp;              /* pointer to a protocol table entry */
+  struct sockaddr_in sad;             /* structure to hold server's address */
 #ifdef WIN32
   WSADATA wsaData;
   WSAStartup(0x0101, &wsaData);
 #endif
   memset((char *)&sad,0,sizeof(sad)); /* clear sockaddr structure */
-  sad.sin_family = AF_INET; /* set family to Internet */
-  sad.sin_addr.s_addr = INADDR_ANY; /* set the local IP address */
-
+  sad.sin_family = AF_INET;           /* set family to Internet */
+  sad.sin_addr.s_addr = INADDR_ANY;   /* set the local IP address */
   
   /* Set left port, otherwise it's set to default 36710. */
   if ((strcmp(lrAddr, "") == 0) && (llPort != 36710)) 
@@ -107,32 +129,36 @@ int processTailSocket (char *lrAddr, int llPort, int lrPort) {
   return sd;
 }
 
+/******************************************************************************
+ * Calls processTailSocket() to create and listen to an open socket, waiting
+ * for a client to connect. Once connected, determine the file descriptor for
+ * input and output data stream.
+ *
+ */
 int tailNode (char* lrAddr, int llPort, int lrPort, int looprFlag, int looplFlag, struct init_values *init) {
-
-  int sd, sd2; /* socket descriptor */
-  int nbytes, nch, alen, lrlen, buflen, sendlen, bufsize, i;
   int ix = 0;
   int wix = 1;
-  int stlrnpFlag = 0;
-  int strlnpFlag = 0;
-  int strlnpxeolFlag = 0;
-  int stlrnpxeolFlag = 0;
+  int extlr = 0;
+  int extrl = 0;
   int loglrpre = 0;
   int logrlpre = 0;
   int loglrpost = 0;
   int logrlpost = 0;
-  int extlr = 0;
-  int extrl = 0;
   int sockAccept = 0;
   int insertMode = 0;
-  int outputDirect = 0; /* output direction : 1 = L -> R | 0 = L <- R */
-  char* buf; /* buffer holds data that will be recieved */
+  int stlrnpFlag = 0;
+  int strlnpFlag = 0;
+  int outputDirect = 0;    /* output direction : 1 = L -> R | 0 = L <- R */
+  int strlnpxeolFlag = 0;
+  int stlrnpxeolFlag = 0;
+  int sd, sd2, nbytes, nch, alen, lrlen, buflen, sendlen, bufsize, i;
   char sendBuf[1000] = "";
+  char* buf;               /* buffer holds data that will be recieved */
   char** cmdBuf;
   pid_t cpid;
   fd_set active_fdset, read_fdset;
   struct sockaddr_in lrad; /* structure holding left remote address */
-  struct sockaddr_in cad; /* structure to hold client's address */ 
+  struct sockaddr_in cad;  /* structure to hold client's address */ 
 
   if (strcmp(lrAddr, "") == 0)
     sockAccept = 1;
@@ -149,6 +175,7 @@ int tailNode (char* lrAddr, int llPort, int lrPort, int looprFlag, int looplFlag
     read_fdset = active_fdset;
     select (FD_SETSIZE, &read_fdset, NULL, NULL, NULL);
 
+    /* KEYBOARD INPUT */
     if (FD_ISSET(0, &read_fdset)) {
       buf = getUserCommand(3, &insertMode, window, &sd2, NULL, &sd, &outputDirect,
                            &stlrnpFlag, &strlnpFlag, &stlrnpxeolFlag, &strlnpxeolFlag,
@@ -161,6 +188,7 @@ int tailNode (char* lrAddr, int llPort, int lrPort, int looprFlag, int looplFlag
       }
     }
 
+    /* CLIENT DATA INPUT */
     else if (FD_ISSET(sd2, &read_fdset)) {
       if (read(sd2, sendBuf, 1000) > 0) {
         if (strcmp(sendBuf, "") != 0) {
@@ -210,7 +238,6 @@ int tailNode (char* lrAddr, int llPort, int lrPort, int looprFlag, int looplFlag
   }
   closesocket(sd2);
  
-
   endwin();
   free(cmdBuf);
   exit(0);

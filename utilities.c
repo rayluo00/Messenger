@@ -1,3 +1,15 @@
+/* utilities.c
+ *
+ * Author: Raymond Weiming Luo
+ * CSCI 367 - Computer Networks I
+ * Assignment 4: Piggy4
+ * 
+ * Utlitiy program that performs the specified user command given from the
+ * keyboard, text file or file descriptor. Constructs a GUI using ncurses 
+ * with basic commands to quit (:q) and insert (i) data alike Vim.
+ *
+ */
+
 #ifndef unix
 #define WIN32
 #include <windows.h>
@@ -24,15 +36,22 @@
 #define PROTOPORT 36710 /* default protocol port number */
 #define QLEN 6 /* size of request queue */
 #define maxwin 12
+
 static WINDOW *window[maxwin];
 static int wdWidth[maxwin];
 static int wdHeight[maxwin];
 static int wrpos[maxwin];
 static int wcpos[maxwin];
 static chtype ls,rs,ts,bs,tl,tr,bl,br;
+
 /* 0 : LOGLRPRE | 1 : LOGRLPRE | 2 : LOGLRPOST | 3 : LOGRLPOST */
 extern FILE **logFiles;
 
+/******************************************************************************
+ * Struct to hold all initial values during the creation of the given socket.
+ * Initial values used when the socket is reset.
+ *
+ */
 struct init_values {
   int rrport;
   int llport;
@@ -51,6 +70,10 @@ struct init_values {
   char* new_lraddr;
 };
 
+/******************************************************************************
+ * Clear the GUI window when text overfills the command line window. 
+ *
+ */
 void clearCommandWin (WINDOW **window, int insertMode) {
   printMode(window, &insertMode);
   wmove(window[10], 4, 1);
@@ -58,11 +81,19 @@ void clearCommandWin (WINDOW **window, int insertMode) {
   wrefresh(window[10]);
 }
 
+/******************************************************************************
+ * Restart and refresh the window when text fills the input window.
+ *
+ */
 void restartWindow (WINDOW **window, int wNum) {
   wclrtoeol(window[wNum]);
   wrefresh(window[wNum]);
 }
 
+/******************************************************************************
+ * Draw the borders of the GUI for each window.
+ *
+ */
 void drawBorders (WINDOW **window) {
   int i;
   for (i = 1; i < maxwin; i++) {
@@ -77,9 +108,15 @@ void drawBorders (WINDOW **window) {
   }
 }
 
+/******************************************************************************
+ * Display the string text to the respcted window. The prompt has a max size of
+ * 132. Anything longer will wrap around the box to the next line.
+ *
+ */
 void wAddStr(WINDOW** window, int wNum, char prompt[132]) {
   int ix,length,y,x, buflen;
-  getyx(window[wNum], y, x);      // find out where we are in the window
+  
+  getyx(window[wNum], y, x);
   y = y?y:!y;
   x = x?x:!x;  
   wrpos[wNum] = y;
@@ -109,6 +146,18 @@ void wAddStr(WINDOW** window, int wNum, char prompt[132]) {
   wrefresh(window[wNum]);
 }
 
+/******************************************************************************
+ * Create the windows for the GUI, there are five windows in total. Four
+ * windows to display input and output data stream and one for the command line.
+ * 
+ * Windows Key:
+ * 1: Display input data from the left connection.
+ * 2. Display output data to the right connection.
+ * 3. Display input data from the right connection.
+ * 4. Display output data to the left connection.
+ * 5. User command line.
+ *
+ */
 void createWindows (WINDOW** window) {
   int i,j,a,b,c,d,nch; 
   chtype ch;
@@ -205,8 +254,14 @@ void createWindows (WINDOW** window) {
   wrefresh(window[10]);
 }
 
+/******************************************************************************
+ * Check if the port is valid and display error message if given an invalid
+ * port for socket to connect onto.
+ *
+ */
 int checkPort (char* buf) {  
   int port = atoi(buf);
+  
   if (port < 1 || port > 65535) {
     mvwprintw(window[10], 1, 13, "- ERROR : '%d' is an invalid port, using default 36710.");
     return 36710;
@@ -214,6 +269,11 @@ int checkPort (char* buf) {
   return port;
 }
 
+/******************************************************************************
+ * Refresh the window to display the updated data and move the cursor to the
+ * end of the data.
+ *
+ */
 void refreshWindow (WINDOW **window) {
   wmove(window[10],2,1);
   wclrtoeol(window[10]);
@@ -221,6 +281,10 @@ void refreshWindow (WINDOW **window) {
   wmove(window[10],2,1);
 }
 
+/******************************************************************************
+ * Display notice on user command window if they are in input or command mode.
+ *
+ */
 void printMode (WINDOW **window, int *insertMode) {
   wmove(window[10], 1, 1);
   wclrtoeol(window[10]);
@@ -233,6 +297,11 @@ void printMode (WINDOW **window, int *insertMode) {
   wrefresh(window[10]);
 } 
 
+/******************************************************************************
+ * Check the arguments for long spaces and remove the long spaces to recieve
+ * valid commands.
+ *
+ */
 char** checkBuf (char* args) {
   char* bufPtr;
   char** newBuf;
@@ -274,6 +343,11 @@ char** checkBuf (char* args) {
   return newBuf;
 }
 
+/******************************************************************************
+ * Determine if the socket can perform the 'strip' commands, which would
+ * filter out input and output data with special characters.
+ *
+ */
 int stripCheck (int *left, int *right, int *self, int stlrnp, int strlnp, int stlrnpxeol, int strlnpxeol) {
   if ((stlrnp == 1 && right != NULL) || (stlrnpxeol == 1 && right != NULL))
     return 1;
@@ -283,10 +357,14 @@ int stripCheck (int *left, int *right, int *self, int stlrnp, int strlnp, int st
   return 0;
 }
 
+/******************************************************************************
+ * Filter out the buffer with any special, non-printable and binary data.
+ *
+ */
 void stripNonPrint (char *buf, int stlrnp, int strlnp, int stlrnpxeol, int strlnpxeol) {
-  char *newBuf;
   int i, j;
   int buflen = strlen(buf);
+  char *newBuf;
 
   newBuf = (char *) malloc(sizeof(char) * (1000));
 
@@ -305,6 +383,10 @@ void stripNonPrint (char *buf, int stlrnp, int strlnp, int stlrnpxeol, int strln
   }
 }
 
+/******************************************************************************
+ * Read data from the buffer into the log file.
+ *
+ */
 void readToLog (int fileNum, char *buf) {
   int ix = 0;
   while (buf[ix] != 0) {
@@ -313,6 +395,11 @@ void readToLog (int fileNum, char *buf) {
   }
 }
 
+/******************************************************************************
+ * Determine if the respected socket can log data from the input buffer into
+ * log files.
+ *
+ */
 void logIntoFiles (int piggy, int loglrpre, int logrlpre, int loglrpost, int logrlpost, char *buf) {
   if (piggy == 1 || piggy == 2) {
     if (loglrpre)
@@ -328,6 +415,14 @@ void logIntoFiles (int piggy, int loglrpre, int logrlpre, int loglrpost, int log
   }
 }
 
+/******************************************************************************
+ * Recieve the interactive command from the user, checking if the command is
+ * valid with the corresponding flags. Command is finished when the user presses
+ * the ENTER key. Determine if the command is in input mode to send to the
+ * connected socket, or command mode to execute a specific command. Display the
+ * command on the command line window.
+ *
+ */
 char* getUserCommand (int piggy, int* insertMode, WINDOW** window, int* left, int* right,
                       int* self, int* outputDirect, int *stlrnpFlag, int *strlnpFlag, int *stlrnpxeolFlag,
                       int *strlnpxeolFlag, int *loglrpre, int *logrlpre, int *loglrpost, int *logrlpost) {
@@ -438,6 +533,11 @@ char* getUserCommand (int piggy, int* insertMode, WINDOW** window, int* left, in
   return buf;
 }
 
+/******************************************************************************
+ * Accept a new socket connection with the specified IP address with the 
+ * corresponding active file descriptor. 
+ *
+ */
 int acceptConnection (fd_set* active_fdset, struct sockaddr_in cad, struct sockaddr_in lrad,
                       int* sd, WINDOW **window, struct init_values *init) {
   int alen, sd2, lrlen;
@@ -467,6 +567,11 @@ int acceptConnection (fd_set* active_fdset, struct sockaddr_in cad, struct socka
   return sd2;
 }
 
+/******************************************************************************
+ * Perform pipeline redirection for external filter when filtering out special
+ * charcters from an external source, such as a log of text file.
+ *
+ */
 void doPipeline (int piggy, int *extlr, int *extrl, char **buf, pid_t *cpid,
                  int *left, int *right, int *outputDirect, WINDOW **window) {
   int fds1[2];
@@ -491,7 +596,6 @@ void doPipeline (int piggy, int *extlr, int *extrl, char **buf, pid_t *cpid,
   nix = 0;
   while (buf[ix] != NULL) {
     newbuf[nix] = buf[ix];
-    //printf("BUF[%d] = '%s' | NEWBUF[%d] = '%s'\n",ix,buf[ix],nix,newbuf[nix]);
     ix++;
     nix++;
   }
@@ -548,28 +652,32 @@ void doPipeline (int piggy, int *extlr, int *extrl, char **buf, pid_t *cpid,
   }
 }
 
+/******************************************************************************
+ * Perform the specified command to the respected file descriptor and client or
+ * server socket. 
+ *
+ */
 void commands (int piggy, WINDOW **window, fd_set *active_fdset, char **buf,
                int *left, int *right, int *self, int *outputDirect, int *looprFlag, int *looplFlag,
                struct init_values *init, int *stlrnpFlag, int *strlnpFlag, int *stlrnpxeolFlag,
                int *strlnpxeolFlag, int *loglrpre, int *logrlpre, int *loglrpost, int *logrlpost,
                int *extlr, int *extrl, pid_t *cpid) {
   // PIGGY RULE : HEAD[1] | MIDDLE [2] | TAIL [3]
-  int port, acceptCheck, alen, lrlen, scriptlen, i, binaryNum, remainder, buf_len;
-  int sd;
-  int j          = 1;
-  int flag       = 1;
-  int hexNum     = 0;
-  int scriptIdx  = 0;
-  int insertMode = 0;
+  int j = 1;
+  int flag = 1;
   int buflen = 0;
+  int hexNum = 0;
   int extPipe[2];
-  char sendBuf[132];
+  int scriptIdx = 0;
+  int insertMode = 0;
+  int sd, port, acceptCheck, alen, lrlen, scriptlen, i, binaryNum, remainder, buf_len;
   char dspbuf[132];
+  char script[1000];
+  char sendBuf[132];
   char remoteIP[50];
   char *msg;
-  char **scriptCmd;
-  char script[1000];
   char *fileName;
+  char **scriptCmd;
   FILE *file;
   socklen_t sa_len, peer_len;
   struct sockaddr_in cad;
@@ -1056,7 +1164,6 @@ void commands (int piggy, WINDOW **window, fd_set *active_fdset, char **buf,
       scriptlen = strlen(script);
       if (script[scriptlen-1] == '\n')
         script[scriptlen-1] = 0;
-      //printf("ARGS[%d] = '%s'\n",i++,script);
 
       // Insert Mode
       if (insertMode) {

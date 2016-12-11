@@ -39,8 +39,8 @@
 static WINDOW *window[maxwin];
 extern FILE **logFiles;
 
-/************************************************** INITIAL VALUES **************************************************
- * Struct to hold all initial values of during the creation of the head socket.
+/******************************************************************************
+ * Struct to hold all initial values during the creation of the head socket.
  * Initial values used when the socket is reset.
  *
  */
@@ -64,10 +64,10 @@ struct init_values {
   char* new_lraddr;
 };
 
-/*********************************************** PROCESS HEAD SOCKET ************************************************
+/******************************************************************************
  * Create the head socket, then connect to the socket on the right with the 
- * respected IP Address and port number. Socket can reuse the same address
- * if the port is changed.
+ * respected IP Address and port number. This socket acts as the client socket
+ * and can reuse the same address if the port is changed.
  */
 int processHeadSocket (char* rrAddr, int rrPort) {
   int  n;                 /* number of characters read */
@@ -134,7 +134,7 @@ int processHeadSocket (char* rrAddr, int rrPort) {
   return sd;
 }
 
-/*************************************************** SOCKET HEAD ****************************************************
+/******************************************************************************
  * Calls processHeadSocket() to create and connect a socket, the input for this
  * socket depends on the corresponding file descriptor. FD = 1 is input from
  * the keyboard and FD > 1 is input from the client/server socket.

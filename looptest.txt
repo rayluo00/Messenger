@@ -1,0 +1,11 @@
+loopr
+i
+this is a test
+and this is in another line.
+random chars : !&@&^%#$()$@(*&#%
+
+skipped a line.
+
+
+
+pass.

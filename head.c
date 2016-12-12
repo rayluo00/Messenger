@@ -33,7 +33,7 @@
 #include <unistd.h>
 #include "network.h"
 #define PROTOPORT 36710 /* default protocol port number */
-#define QLEN 12 /* size of request queue */
+#define QLEN 12         /* size of request queue */
 #define maxwin 12
 
 static WINDOW *window[maxwin];

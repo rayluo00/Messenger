@@ -1,3 +1,14 @@
+/* network.h
+ *
+ * Author: Raymond Weiming Luo
+ * CSCI 367 - Computer Networks I
+ * Assignment 4: Piggy4
+ * 
+ * Header file for network methods shared for the client, server and utility
+ * programs. 
+ *
+ */
+
 #ifndef unix
 #define WIN32
 #include <windows.h>

@@ -1,3 +1,15 @@
+/* piggy4.c
+ *
+ * Author: Raymond Weiming Luo
+ * CSCI 367 - Computer Networks I
+ * Assignment 4: Piggy4
+ * 
+ * Middle tunnel for the client and server sockets. With the left end 
+ * being a server socket to allow a client to connect. And the right
+ * end if a client socket that connects onto a litening server.
+ *
+ */
+
 #ifndef unix
 #define WIN32
 #include <windows.h>
@@ -20,11 +32,17 @@
 #include <unistd.h>
 #include "network.h"
 #define PROTOPORT 36710 /* default protocol port number */
-#define QLEN 12 /* size of request queue */
+#define QLEN 12         /* size of request queue */
 #define maxwin 12
+
 static WINDOW *window[maxwin];
 FILE **logFiles;
 
+/******************************************************************************
+ * Struct to hold all initial values during the creation of the head socket.
+ * Initial values used when the socket is reset.
+ *
+ */
 struct init_values {
   int rrport;
   int llport;
@@ -43,41 +61,45 @@ struct init_values {
   char* new_lraddr;
 };
 
+/******************************************************************************
+ * Body connection with the left end listening as a server and right end
+ * connecting onto a litening server, acting as a client. The two ends are
+ * determined by the socket descriptor: sd = server end and sd3 = client end
+ *
+ */
 int bodyNode (char* rrAddr, char* lrAddr, int rrPort, int llPort, int lrPort,
               int looprFlag, int looplFlag, int rlPort, struct init_values *init) {
-  
-  int alen, nbytes, lrlen, buflen, bufsize, nch, i, readc, buf_len;
   int ix = 0;
-  int outputDirect = 1;
+  int extlr = 0;
+  int extrl = 0;
   int lrCheck = 0;
-  int sockAccept = 0;
-  int insertMode = 0;
-  int stlrnpFlag = 0;
-  int strlnpFlag = 0;
-  int strlnpxeolFlag = 0;
-  int stlrnpxeolFlag = 0;
   int loglrpre = 0;
   int logrlpre = 0;
   int loglrpost = 0;
   int logrlpost = 0;
-  int extlr = 0;
-  int extrl = 0;
-  int sd, sd2, sd3; /* socket descriptor */
-  char* buf; /* buffer for data from the server */
+  int sockAccept = 0;
+  int insertMode = 0;
+  int stlrnpFlag = 0;
+  int strlnpFlag = 0;
+  int outputDirect = 1;
+  int strlnpxeolFlag = 0;
+  int stlrnpxeolFlag = 0;
+  int sd, sd2, sd3, alen, nbytes, lrlen, buflen, bufsize, nch, i, readc, buf_len;
   char sendBuf[1000] = "";
+  char* buf;               /* buffer for data from the server */
   char** cmdBuf;
   pid_t cpid;
   fd_set read_fdset, active_fdset;
-  struct sockaddr_in cad; /* structure to hold client's address */
+  struct sockaddr_in cad;  /* structure to hold client's address */
   struct sockaddr_in lrad; /* structure holding left remote address */
-  struct hostent *ptrh; /* pointer to a host table entry */
-  struct protoent *ptrp; /* pointer to a protocol table entry */
-  struct sockaddr_in sad; /* structure to hold server's address */
+  struct hostent *ptrh;    /* pointer to a host table entry */
+  struct protoent *ptrp;   /* pointer to a protocol table entry */
+  struct sockaddr_in sad;  /* structure to hold server's address */
 
-  if (strcmp(lrAddr, "") == 0)
+  if (strcmp(lrAddr, "") == 0) {
     sockAccept = 1;
+  }
   
-  //printf("LL %d | RR %d\n",llPort, rrPort);
   sd = processHeadSocket (rrAddr, rrPort);
   sd2 = processTailSocket (lrAddr, llPort, lrPort);
   sd3 = -1;
@@ -113,8 +135,8 @@ int bodyNode (char* rrAddr, char* lrAddr, int rrPort, int llPort, int lrPort,
     else if (FD_ISSET(sd, &read_fdset)) {
       if (readc = read(sd, sendBuf, 1000) > 0) {
         logIntoFiles(2, loglrpre, logrlpre, 0, 0, sendBuf);
-        if (stripCheck(&sd3, &sd, &sd2, stlrnpFlag, strlnpFlag, stlrnpxeolFlag, strlnpxeolFlag))
-          {
+        
+        if (stripCheck(&sd3, &sd, &sd2, stlrnpFlag, strlnpFlag, stlrnpxeolFlag, strlnpxeolFlag)) {
             buf_len = strlen(sendBuf);
             for (int i = 0; i < buf_len; i++) {
               if (sendBuf[i] < 32 || sendBuf[i] >= 127)
@@ -126,8 +148,9 @@ int bodyNode (char* rrAddr, char* lrAddr, int rrPort, int llPort, int lrPort,
         wAddStr(window, 9, sendBuf);
         send(sd3, sendBuf, strlen(sendBuf), 0);
 
-        if (looprFlag)
+        if (looprFlag) {
           send(sd, sendBuf, strlen(sendBuf), 0);
+        }
       }
       else if (readc == 0) {
         FD_CLR(sd, &active_fdset);
@@ -144,19 +167,21 @@ int bodyNode (char* rrAddr, char* lrAddr, int rrPort, int llPort, int lrPort,
         wAddStr(window, 6, sendBuf);
         wAddStr(window, 7, sendBuf);
         logIntoFiles(2, loglrpre, logrlpre, 0, 0, sendBuf);
-        if (stripCheck(&sd3, &sd, &sd2, stlrnpFlag, strlnpFlag, stlrnpxeolFlag, strlnpxeolFlag))
-          {
+        
+        if (stripCheck(&sd3, &sd, &sd2, stlrnpFlag, strlnpFlag, stlrnpxeolFlag, strlnpxeolFlag)) {
             buf_len = strlen(sendBuf);
-            for (int i = 0; i < buf_len; i++) {
-              if (sendBuf[i] < 32 || sendBuf[i] >= 127)
+            for (int i = 0; i < buf_len; i++) {      
+              if (sendBuf[i] < 32 || sendBuf[i] >= 127) {
                 sendBuf[i] = '\0';
+              }
             }
           }
         logIntoFiles(2, 0, 0, loglrpost, logrlpost, sendBuf);
         send(sd, sendBuf, strlen(sendBuf), 0);
 
-        if (looplFlag) 
+        if (looplFlag) {
           send(sd3, sendBuf, strlen(sendBuf), 0);
+        }
       }
       else if (readc == 0) {
         FD_CLR(sd3, &active_fdset);
@@ -168,6 +193,7 @@ int bodyNode (char* rrAddr, char* lrAddr, int rrPort, int llPort, int lrPort,
     }
     else {
       alen = sizeof(cad);
+      
       if ((sd3 = accept(sd2, (struct sockaddr *)&cad, &alen)) < 0) {
         mvwprintw(window[10], 1, 13, " - ERROR : Accepting conneciton failed.");
         refreshWindow(window);
@@ -175,13 +201,14 @@ int bodyNode (char* rrAddr, char* lrAddr, int rrPort, int llPort, int lrPort,
       } else {
         if (strcmp(lrAddr, "") != 0) {
           lrlen = strlen(lrAddr);
+          
           if (getpeername(sd2, (struct sockaddr *)&lrad, &lrlen) != 0) {
             mvwprintw(window[10], 1, 13, " - ERROR : getpeername failed.");
             refreshWindow(window);
           }
     
           if ((strcmp(lrAddr, "") != 0) && (lrAddr[0] != '\0')) {
-            if (strncmp(lrAddr, inet_ntoa(lrad.sin_addr), lrlen) != 0){
+            if (strncmp(lrAddr, inet_ntoa(lrad.sin_addr), lrlen) != 0) {
               mvwprintw(window[10], 1, 13, " - ERROR : '%s' is not a valid address to connect.", inet_ntoa(lrad.sin_addr));
               refreshWindow(window);
               closesocket(sd3);
@@ -193,8 +220,8 @@ int bodyNode (char* rrAddr, char* lrAddr, int rrPort, int llPort, int lrPort,
     }
     memset(sendBuf, 0, 1000);
   }
-  /* Close the socket. */
   
+  /* Close the socket. */
   closesocket(sd);
   closesocket(sd2);
   closesocket(sd3);
@@ -204,17 +231,24 @@ int bodyNode (char* rrAddr, char* lrAddr, int rrPort, int llPort, int lrPort,
   return 0;
 }
 
+/******************************************************************************
+ * Main function that starts the program, sets the respected flag values given
+ * by arguments from STDIN. If no port is given, use a default port of 36710.
+ * Create the client and server for each respected socket descriptor and connect
+ * the ends.
+ *
+ */
 void main(int argc, char *argv[]) {
   int opt = 0;
   int retVal = 0;
+  int looprFlag = 0;
+  int looplFlag = 0;
   int rrPort = 36710;
   int llPort = 36710;
   int lrPort = 36710;
   int rlPort = 36710;
   int noLeftFlag = 0;
   int noRightFlag = 0;
-  int looprFlag = 0;
-  int looplFlag = 0;
   char* rrAddr = "";
   char* lrAddr = "";
   struct init_values init;

@@ -34,7 +34,7 @@
 #include <sys/wait.h>
 #include "network.h"
 #define PROTOPORT 36710 /* default protocol port number */
-#define QLEN 6 /* size of request queue */
+#define QLEN 6          /* size of request queue */
 #define maxwin 12
 
 static WINDOW *window[maxwin];
